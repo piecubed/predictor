@@ -19,6 +19,7 @@ class StudentGradePredictor:
     def __init__(self):
         try:
             self.__raw = pickle.load(open("linear regression/student_model.pickle", "rb"))
+            self.linear = self.__raw["model"]
         except FileNotFoundError:
             self.linear = linear_model()
             __raw = {"best": 0, "model": self.linear}
