@@ -137,16 +137,17 @@ class StudentGradePredictor:
         y = self.linear.predict(x)[0]
         return y
 
-    def graph(self, frame, frame_title=None):
+    def graph(self, column, column_label=None):
         """
         Graph a frame
-        :param frame: Name of the data frame to show
+        :param column: Name of the column to show
+        :param column_label: Label of the column
         :return: None
         """
         self.read_data()
         style.use('ggplot')
-        pyplot.scatter(self.__df[frame], self.__df[self.__prediction_column])
-        pyplot.xlabel(frame_title if frame_title is not None else frame)
+        pyplot.scatter(self.__df[column], self.__df[self.__prediction_column])
+        pyplot.xlabel(column_label if column_label is not None else column)
         pyplot.ylabel("Final Grade")
         pyplot.show()
 
@@ -168,7 +169,7 @@ class StudentGradePredictor:
 
 
 # Instead of putting the pickle file into version control, we decided to use the node ID of our computers to keep our
-# models seperate.
+# models separate.
 # If you are using the other pickle file, be sure to remember to turn on no_save
 def get_pickle_file():
     return f'linear regression/{uuid.getnode()}_model.pickle'
@@ -176,7 +177,8 @@ def get_pickle_file():
 
 if __name__ == "__main__":
     sgp = StudentGradePredictor(
-        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet", "reason", "Pstatus"],
+        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet", "reason",
+                      "Pstatus"],
         prediction_column="G3",
         non_numerical_columns=["higher", "internet", "reason", "Pstatus"],
         pickle_file=get_pickle_file()
