@@ -129,7 +129,7 @@ class Predictor:
         total = 0
         c = 0
         best = self.__raw["best"]
-        while condition(c and (total / c), best) or c < min_fits:
+        while c < min_fits or condition(c and total / c, best):
             c += 1
             # Pick sample data
             x_train, x_test, y_train, y_test = self.__pick_sample_data()
