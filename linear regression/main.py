@@ -157,15 +157,15 @@ class StudentGradePredictor:
         Gets user input and predicts a grade
         :return: None
         """
-        gpa = float(input("Grade (Out of 20): "))
+        G1 = float(input("Grade first quarter (Out of 20): "))
+        G2 = float(input("Grade second quarter (Out of 20): "))
         failures = int(input("Failures: "))
         absences = int(input("Absences: "))
-        medu = int(
-            input("Mothers Education (0: none, 1: 1st-5th grade, 2: 5th-9th grade, 3: 9th-12th, 4: Higher education) "))
         famrel = int(input("On a scale of 1, very poor, to 5, excellent, what is your family relationship?  "))
         health = int(input("On a scale of 1, very poor, to 5, very good, what is your health? "))
-
-        print("Your final grade:", self.predict([gpa, failures, absences, medu, famrel, health]))
+        higher = int(input("Do you want to pursue a higher education? (y, n) ") == "y")
+        internet = int(input("Do you have internet access at home? (y, n) ") == "y")
+        print("Your final grade:", self.predict([G1, G2, failures, absences, famrel, health, higher, internet]))
 
 
 # Instead of putting the pickle file into version control, we decided to use the node ID of our computers to keep our
@@ -177,11 +177,12 @@ def get_pickle_file():
 
 if __name__ == "__main__":
     sgp = StudentGradePredictor(
-        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet", "reason",
-                      "Pstatus"],
+        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"],
         prediction_column="G3",
-        non_numerical_columns=["higher", "internet", "reason", "Pstatus"],
+        non_numerical_columns=["higher", "internet"],
         pickle_file=get_pickle_file()
     )
 
-    sgp.train(lambda avg, best: avg < 0.81)
+    sgp.train(lambda avg, best: avg < 0.80)
+
+    sgp.ask_for_prediction()
