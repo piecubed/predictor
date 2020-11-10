@@ -198,9 +198,9 @@ if __name__ == "__main__":
     __pred = Predictor(
         csv_file="student-mat.csv",
         csv_sep=";",
-        data_columns=("G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"),
+        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"],
         prediction_column="G3",
-        non_numerical_columns=("higher", "internet"),
+        non_numerical_columns=["higher", "internet"],
         pickle_file="model.pickle"
     )
 
