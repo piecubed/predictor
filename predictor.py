@@ -1,14 +1,12 @@
 import pickle
-import uuid
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as pyplot
 import numpy as np
 import pandas as pd
-
 from matplotlib import style
 from sklearn import linear_model, model_selection
 from sklearn.preprocessing import LabelEncoder
-from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 class Predictor:
@@ -131,11 +129,10 @@ class Predictor:
         :param save_model: bool Controls if the model is pickled after `condition` is met.
         :return: None
         """
-
         total = 0
         c = 0
         best = self.__raw["best"]
-        while condition(0 if c == 0 else total/c, best) or c < min_fits:
+        while condition(0 if c == 0 else total / c, best) or c < min_fits:
             c += 1
             # Pick sample data
             x_train, x_test, y_train, y_test = self.__pick_sample_data()
@@ -200,27 +197,16 @@ def ask_for_prediction(predictor: Predictor) -> None:
     print("Your final grade:", predictor.predict([G1, G2, failures, absences, famrel, health, higher, internet]))
 
 
-# Instead of putting the pickle file into version control, we decided to use the node ID of our computers to keep our
-# models separate.
-# If you are using the other pickle file, be sure to remember to turn on no_save
-def get_pickle_file() -> str:
-    """
-    Gets the path of the model pickle file.
-    :return: str, path of the model
-    """
-    return f'linear regression/{uuid.getnode()}_model.pickle'
-
-
 if __name__ == "__main__":
-    pred = Predictor(
-        csv_file="linear regression/student-mat.csv",
+    __pred = Predictor(
+        csv_file="student-mat.csv",
         csv_sep=";",
         data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"],
         prediction_column="G3",
         non_numerical_columns=["higher", "internet"],
-        pickle_file=get_pickle_file()
+        pickle_file="model.pickle"
     )
 
-    pred.train(lambda avg, best: avg < 0.80)
+    __pred.train(lambda avg, best: avg < 0.80)
 
-    ask_for_prediction(pred)
+    ask_for_prediction(__pred)
