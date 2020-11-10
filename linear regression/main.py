@@ -1,35 +1,59 @@
 import pickle
+import uuid
 
 import matplotlib.pyplot as pyplot
 import numpy as np
 import pandas as pd
-import uuid
 
 from matplotlib import style
 from sklearn import linear_model, model_selection
 from sklearn.preprocessing import LabelEncoder
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
-class StudentGradePredictor:
-    __pickle_file = None
-    __raw = None
+class Predictor:
+    __csv_file: str = None
+    __csv_sep: str = None
+    __data_columns: List[str] = None
+    __df: pd.DataFrame = None
+    __non_numerical_columns: List[str] = []
+    __pickle_file: str = None
+    __prediction_column: str = None
+    __raw: Dict[str, Any] = None
+    __X: np.array = None
+    __Y: np.array = None
+
     linear: linear_model = None
-    __df = None
-    __X = None
-    __Y = None
-    __data_columns = None
-    __prediction_column = None
-    __non_numerical_columns = None
 
-    def __init__(self, *, data_columns, prediction_column, non_numerical_columns,
-                 pickle_file="linear regression/student_model.pickle"):
+    def __init__(self, *, csv_file: str, data_columns: List[str], prediction_column: str,
+                 pickle_file: Optional[str], csv_sep: str = ",",
+                 non_numerical_columns: Optional[List[str]] = None) -> None:
+
+        """
+        Predicts a data column based on other columns using Linear Regression.
+
+        :param csv_file: str What file the CSV data is in.
+        :param data_columns: List[str] What columns of data to include from the CSV file.
+        :param prediction_column: str What column to predict.
+        :param pickle_file: Optional[str] What file the pickled model is in.
+        :param non_numerical_columns: Optional[List[str]] What columns need to be converted to numerical values.
+        :param csv_sep: str What separator the CSV file has.
+        """
+
+        if non_numerical_columns is not None:
+            self.__non_numerical_columns = non_numerical_columns
+
+        self.__csv_file = csv_file
+        self.__csv_sep = csv_sep
         self.__data_columns = data_columns
-        self.__prediction_column = prediction_column
         self.__non_numerical_columns = non_numerical_columns
-
         self.__pickle_file = pickle_file
+        self.__prediction_column = prediction_column
 
         try:
+            if self.__pickle_file is None:
+                raise FileNotFoundError()
+
             self.__raw = pickle.load(open(self.__pickle_file, "rb"))
             if "best" not in self.__raw.keys() or "model" not in self.__raw.keys():
                 raise KeyError()
@@ -42,7 +66,7 @@ class StudentGradePredictor:
             self.__save_data()
 
         if set(self.__raw["columns"]) != set(data_columns):
-            print("Model cache based on old columns, updating pickle.")
+            print("WARNING: Model cache based on old columns, creating new model.")
             self.linear = linear_model.LinearRegression()
 
             self.__raw = {"best": 0, "model": self.linear, "columns": data_columns}
@@ -51,53 +75,62 @@ class StudentGradePredictor:
         assert self.linear is not None
         assert self.__raw is not None
 
-    def __save_data(self):
+        self.__read_data()
+
+    def __save_data(self) -> None:
+        """
+        Saves __data to __pickle_file.
+        """
         with open(self.__pickle_file, "wb") as f:
             pickle.dump(self.__raw, f)
 
-    def __transform_non_numerical_frame(self, frame):
-        # Try to convert a string datatype to numerical
+    def __transform_non_numerical_column(self, column: str) -> None:
+        """
+        Transforms a non-numerical column into
+        :param column: str Name of the column to transform.
+        """
+        # Try to convert a string datatype to a numerical value
         enc = LabelEncoder()
-        enc.fit(self.__df[frame])
-        self.__df[frame] = enc.transform(self.__df[frame])
+        enc.fit(self.__df[column])
+        self.__df[column] = enc.transform(self.__df[column])
 
-    def __pick_sample_data(self, test_size=0.1):
-        self.read_data()
+    def __pick_sample_data(self, test_size: int = 0.1) -> Tuple[np.array, np.array, np.array, np.array]:
+        """
+        Picks sample data
 
+        :param test_size:
+        :return: (x_train: np.array, x_test: np.array, y_train: np.array, y_test: np.array)
+        """
         return model_selection.train_test_split(self.__X, self.__Y, test_size=test_size)
 
-    def read_data(self, csv_file="linear regression/student-mat.csv"):
+    def __read_data(self) -> None:
         """
-        Reads and sanitizes data.
-        Safe to be called multiple times.
-        :param csv_file: Default="linear regression/student-mat.csv".  Path to the CSV data file.
+        Reads and sanitizes data.  Safe to be called multiple times.
         :return: None
         """
-
         if self.__X is None or self.__Y is None or self.__df is None:
             # Read CSV file
-            self.__df = pd.read_csv(csv_file, sep=";")[self.__data_columns]
+            self.__df = pd.read_csv(self.__csv_file, sep=self.__csv_sep)[self.__data_columns]
 
-            # Transform any specified non numerical frames
-            for frame in self.__non_numerical_columns:
-                self.__transform_non_numerical_frame(frame)
+            # Transform any specified non numerical columns
+            for column in self.__non_numerical_columns:
+                self.__transform_non_numerical_column(column)
 
             # Determine X and Y
             self.__X = np.array(self.__df.drop([self.__prediction_column], 1))
             self.__Y = np.array(self.__df[self.__prediction_column])
 
-    def train(self, condition, min_fits=10, silent=False, save_model=True):
+    def train(self, condition: Callable[[float, float], bool], min_fits: int = 10, silent: bool = False,
+              save_model: bool = True) -> None:
         """
         Trains the model until `condition` is met.
-        :param condition: A function that decides when to stop training.  Should take two arguments, average accuracy,
-        and best accuracy.
-        :param min_fits: Default=10 Min number of fits to do.
-        :param silent: Default=False, controls if accuracy is printed.
-        :param save_model: Default=True, controls if the model is pickled after `condition` is met.
+        :param condition: Callable[[float, float], bool] A function that decides when to stop training.
+        Takes two arguments, average accuracy, and best accuracy.
+        :param min_fits: int Min number of fits to do.
+        :param silent: bool Controls if accuracy is printed.
+        :param save_model: bool Controls if the model is pickled after `condition` is met.
         :return: None
         """
-
-        self.read_data()
 
         total = 0
         c = 0
@@ -126,63 +159,68 @@ class StudentGradePredictor:
             self.__raw['model'] = self.linear
             self.__save_data()
 
-    def predict(self, data):
+    def predict(self, data: List[Any]) -> float:
         """
         Attempt to predict a value.
-        :param data: Input to predict a value with.
+        :param data: List[Any] Input to predict a value with.
         :return: Predicted value.
         """
-
         x = np.array([data])
         y = self.linear.predict(x)[0]
         return y
 
-    def graph(self, column, column_label=None):
+    def graph(self, column: str, column_label: str = None) -> None:
         """
-        Graph a frame
-        :param column: Name of the column to show
-        :param column_label: Label of the column
+        Graph a column
+        :param column: str Name of the column to show
+        :param column_label: str Label of the column
         :return: None
         """
-        self.read_data()
         style.use('ggplot')
         pyplot.scatter(self.__df[column], self.__df[self.__prediction_column])
         pyplot.xlabel(column_label if column_label is not None else column)
-        pyplot.ylabel("Final Grade")
+        pyplot.ylabel(self.__prediction_column)
         pyplot.show()
 
-    # NOT GENERALIZED
-    def ask_for_prediction(self):
-        """
-        Gets user input and predicts a grade
-        :return: None
-        """
-        G1 = float(input("Grade first quarter (Out of 20): "))
-        G2 = float(input("Grade second quarter (Out of 20): "))
-        failures = int(input("Failures: "))
-        absences = int(input("Absences: "))
-        famrel = int(input("On a scale of 1, very poor, to 5, excellent, what is your family relationship?  "))
-        health = int(input("On a scale of 1, very poor, to 5, very good, what is your health? "))
-        higher = int(input("Do you want to pursue a higher education? (y, n) ") == "y")
-        internet = int(input("Do you have internet access at home? (y, n) ") == "y")
-        print("Your final grade:", self.predict([G1, G2, failures, absences, famrel, health, higher, internet]))
+
+def ask_for_prediction(predictor: Predictor) -> None:
+    """
+    Gets user input and predicts a grade
+    :param predictor: Predictor Instance of Predictor
+    :return: None
+    """
+    G1 = float(input("Grade first quarter (Out of 20): "))
+    G2 = float(input("Grade second quarter (Out of 20): "))
+    failures = int(input("Failures: "))
+    absences = int(input("Absences: "))
+    famrel = int(input("On a scale of 1, very poor, to 5, excellent, what is your family relationship?  "))
+    health = int(input("On a scale of 1, very poor, to 5, very good, what is your health? "))
+    higher = int(input("Do you want to pursue a higher education? (y, n) ") == "y")
+    internet = int(input("Do you have internet access at home? (y, n) ") == "y")
+    print("Your final grade:", predictor.predict([G1, G2, failures, absences, famrel, health, higher, internet]))
 
 
 # Instead of putting the pickle file into version control, we decided to use the node ID of our computers to keep our
 # models separate.
 # If you are using the other pickle file, be sure to remember to turn on no_save
-def get_pickle_file():
+def get_pickle_file() -> str:
+    """
+    Gets the path of the model pickle file.
+    :return: str, path of the model
+    """
     return f'linear regression/{uuid.getnode()}_model.pickle'
 
 
 if __name__ == "__main__":
-    sgp = StudentGradePredictor(
+    pred = Predictor(
+        csv_file="linear regression/student-mat.csv",
+        csv_sep=";",
         data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"],
         prediction_column="G3",
         non_numerical_columns=["higher", "internet"],
         pickle_file=get_pickle_file()
     )
 
-    sgp.train(lambda avg, best: avg < 0.80)
+    pred.train(lambda avg, best: avg < 0.80)
 
-    sgp.ask_for_prediction()
+    ask_for_prediction(pred)
