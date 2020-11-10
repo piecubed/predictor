@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import matplotlib.pyplot as pyplot
 import numpy as np
@@ -12,9 +12,9 @@ from sklearn.preprocessing import LabelEncoder
 class Predictor:
     __csv_file: str = None
     __csv_sep: str = None
-    __data_columns: List[str] = None
+    __data_columns: Sequence[str] = ()
     __df: pd.DataFrame = None
-    __non_numerical_columns: List[str] = []
+    __non_numerical_columns: Sequence[str] = ()
     __pickle_file: str = None
     __prediction_column: str = None
     __raw: Dict[str, Any] = None
@@ -23,10 +23,9 @@ class Predictor:
 
     linear: linear_model = None
 
-    def __init__(self, *, csv_file: str, data_columns: List[str], prediction_column: str,
+    def __init__(self, *, csv_file: str, data_columns: Sequence[str], prediction_column: str,
                  pickle_file: Optional[str], csv_sep: str = ",",
-                 non_numerical_columns: Optional[List[str]] = None) -> None:
-
+                 non_numerical_columns: Optional[Sequence[str]] = None) -> None:
         """
         Predicts a data column based on other columns using Linear Regression.
 
@@ -44,7 +43,6 @@ class Predictor:
         self.__csv_file = csv_file
         self.__csv_sep = csv_sep
         self.__data_columns = data_columns
-        self.__non_numerical_columns = non_numerical_columns
         self.__pickle_file = pickle_file
         self.__prediction_column = prediction_column
 
@@ -52,28 +50,27 @@ class Predictor:
             if self.__pickle_file is None:
                 raise FileNotFoundError()
 
-            self.__raw = pickle.load(open(self.__pickle_file, "rb"))
-            if "best" not in self.__raw.keys() or "model" not in self.__raw.keys():
+            with open(self.__pickle_file, "rb") as f:
+                self.__raw = pickle.load(f)
+
+            if "best" not in self.__raw or "model" not in self.__raw:
                 raise KeyError()
             self.linear = self.__raw["model"]
 
         except (FileNotFoundError, KeyError):
             print("WARNING: Creating new model")
-            self.linear = linear_model.LinearRegression()
-            self.__raw = {"best": 0, "model": self.linear, "columns": data_columns}
-            self.__save_data()
+            self.__create_new_model()
 
-        if set(self.__raw["columns"]) != set(data_columns):
+        if set(self.__raw["columns"]) != set(self.__data_columns):
             print("WARNING: Model cache based on old columns, creating new model.")
-            self.linear = linear_model.LinearRegression()
-
-            self.__raw = {"best": 0, "model": self.linear, "columns": data_columns}
-            self.__save_data()
-
-        assert self.linear is not None
-        assert self.__raw is not None
+            self.__create_new_model()
 
         self.__read_data()
+
+    def __create_new_model(self):
+        self.linear = linear_model.LinearRegression()
+        self.__raw = {"best": 0, "model": self.linear, "columns": self.__data_columns}
+        self.__save_data()
 
     def __save_data(self) -> None:
         """
@@ -132,7 +129,7 @@ class Predictor:
         total = 0
         c = 0
         best = self.__raw["best"]
-        while condition(0 if c == 0 else total / c, best) or c < min_fits:
+        while condition(c and (total / c), best) or c < min_fits:
             c += 1
             # Pick sample data
             x_train, x_test, y_train, y_test = self.__pick_sample_data()
@@ -201,9 +198,9 @@ if __name__ == "__main__":
     __pred = Predictor(
         csv_file="student-mat.csv",
         csv_sep=";",
-        data_columns=["G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"],
+        data_columns=("G1", "G2", "G3", "failures", "absences", "famrel", "health", "higher", "internet"),
         prediction_column="G3",
-        non_numerical_columns=["higher", "internet"],
+        non_numerical_columns=("higher", "internet"),
         pickle_file="model.pickle"
     )
 
